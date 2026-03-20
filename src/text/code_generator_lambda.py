@@ -1,15 +1,26 @@
+##############################################################
+# The Lambda code is built as a backend integration for an AWS 
+# API Gateway. It reads the instruction fed by the user along 
+# with the programming language input. The function generates 
+# code based on the provided input.  
+###############################################################
+
 import boto3
 import botocore.config
 import json
 from datetime import datetime
 
 
+#Function for code generation using Anthropic Claude model
 def generate_code_using_bedrock(message:str,language:str) ->str:
 
+    #Prompt to contextualize Human-Assitant Interaction
     prompt_text = f"""
     Human: Write {language} code for the following instructions: {message}.
     Assistant:
     """
+
+    #Model Request Body
     body = {
         "prompt": prompt_text,
         "max_tokens_to_sample": 2048,
@@ -18,7 +29,7 @@ def generate_code_using_bedrock(message:str,language:str) ->str:
         "top_p": 0.2,
         "stop_sequences":["\n\nHuman:"]
     }
-
+    # Anthropic Claude Model invocation through Boto client
     try:
         bedrock = boto3.client("bedrock-runtime",region_name="{REGION_NAME}",config = botocore.config.Config(read_timeout=300, retries = {'max_attempts':3}))
         response = bedrock.invoke_model(body=json.dumps(body),modelId="anthropic.claude-v2")
@@ -31,6 +42,7 @@ def generate_code_using_bedrock(message:str,language:str) ->str:
         print(f"Error generating the code: {e}")
         return ""
 
+#Function for save generated code to S3 bucket
 def save_code_to_s3_bucket(code, s3_bucket, s3_key):
 
     s3 = boto3.client('s3')
@@ -42,6 +54,8 @@ def save_code_to_s3_bucket(code, s3_bucket, s3_key):
     except Exception as e:
         print("Error when saving the code to s3")
 
+
+#AWS Lambda Handler code
 def lambda_handler(event, context):
     event = json.loads(event['body'])
     message = event['message']
